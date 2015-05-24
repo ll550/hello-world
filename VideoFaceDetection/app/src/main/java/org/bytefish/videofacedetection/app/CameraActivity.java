@@ -44,6 +44,9 @@ public class CameraActivity extends Activity
     // Draw rectangles and other fancy stuff:
     private FaceOverlayView mFaceView;
 
+    // Log all errors:
+    private final CameraErrorCallback mErrorCallback = new CameraErrorCallback();
+
     /**
      * Sets the faces for the overlay view, so it can be updated
      * and the face overlays will be drawn again.
@@ -102,7 +105,6 @@ public class CameraActivity extends Activity
         }
     }
 
-
     @Override
     public void surfaceChanged(SurfaceHolder surfaceHolder, int format, int width, int height) {
         // We have no surface, return immediately:
@@ -115,25 +117,49 @@ public class CameraActivity extends Activity
         } catch (Exception e) {
             // Ignore...
         }
-        // Get the supported preview sizes:
-        Camera.Parameters parameters = mCamera.getParameters();
-        List<Camera.Size> previewSizes = parameters.getSupportedPreviewSizes();
-        float targetRatio = (float) width / height;
-        Camera.Size previewSize = Util.getOptimalPreviewSize(this, previewSizes, targetRatio);
-        // And set them:
-        parameters.setPreviewSize(previewSize.width, previewSize.height);
-        mCamera.setParameters(parameters);
-        // Now set the display orientation for the camera. Can we do this differently?
+
+        configureCamera(width, height);
+        setDisplayOrientation();
+        setErrorCallback();
+
+        // Everything is configured! Finally start the camera preview again:
+        mCamera.startPreview();
+    }
+
+    private void setErrorCallback() {
+        mCamera.setErrorCallback(mErrorCallback);
+    }
+
+    private void setDisplayOrientation() {
+        // Now set the display orientation:
         mDisplayRotation = Util.getDisplayRotation(CameraActivity.this);
         mDisplayOrientation = Util.getDisplayOrientation(mDisplayRotation, 0);
+
         mCamera.setDisplayOrientation(mDisplayOrientation);
 
         if (mFaceView != null) {
             mFaceView.setDisplayOrientation(mDisplayOrientation);
         }
+    }
 
-        // Finally start the camera preview again:
-        mCamera.startPreview();
+    private void configureCamera(int width, int height) {
+        Camera.Parameters parameters = mCamera.getParameters();
+        // Set the PreviewSize and AutoFocus:
+        setOptimalPreviewSize(parameters, width, height);
+        setAutoFocus(parameters);
+        // And set the parameters:
+        mCamera.setParameters(parameters);
+    }
+
+    private void setOptimalPreviewSize(Camera.Parameters cameraParameters, int width, int height) {
+        List<Camera.Size> previewSizes = cameraParameters.getSupportedPreviewSizes();
+        float targetRatio = (float) width / height;
+        Camera.Size previewSize = Util.getOptimalPreviewSize(this, previewSizes, targetRatio);
+        cameraParameters.setPreviewSize(previewSize.width, previewSize.height);
+    }
+
+    private void setAutoFocus(Camera.Parameters cameraParameters) {
+        cameraParameters.setFocusMode(Camera.Parameters.FOCUS_MODE_CONTINUOUS_VIDEO);
     }
 
     @Override
